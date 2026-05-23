@@ -104,7 +104,7 @@
       </div>
 
       {{-- MUA HÀNG --}}
-      <form class="flex items-center gap-3 mt-4">
+      <form id="addCartForm" class="flex items-center gap-3 mt-4">
         @csrf
 
         <input type="number" name="quantity"
@@ -113,7 +113,7 @@
                value="1"
                class="w-20 border rounded px-2 py-1">
 
-        <button class="bg-red-600 hover:bg-red-700 text-white px-5 py-2 rounded font-semibold"
+        <button type="submit" class="bg-red-600 hover:bg-red-700 text-white px-5 py-2 rounded font-semibold"
                 {{ ($product->inventory->stock ?? 0) <= 0 ? 'disabled' : '' }}>
           🛒 Thêm vào giỏ
         </button>
@@ -154,3 +154,34 @@
 
 </div>
 @endsection
+@push('scripts')
+<script>
+const token = "{{ csrf_token() }}";
+
+document.getElementById('addCartForm')?.addEventListener('submit', async function(e){
+    e.preventDefault();
+
+    let qty = this.querySelector('[name="quantity"]').value;
+
+    let res = await fetch("{{ route('cart.add') }}", {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+            'X-CSRF-TOKEN': token
+        },
+        body: JSON.stringify({
+            product_id: {{ $product->id }},
+            quantity: qty
+        })
+    });
+
+    let j = await res.json();
+
+    if(j.ok){
+        alert('Đã thêm vào giỏ');
+    }else{
+        alert(j.message || 'Lỗi');
+    }
+});
+</script>
+@endpush

@@ -10,13 +10,12 @@ input,select{border:1px solid #ddd;padding:8px;border-radius:8px}
 .btn{padding:6px 10px;border-radius:8px;border:0;cursor:pointer}
 .btn.gray{background:#eee}
 .badge{padding:3px 8px;border-radius:999px;font-size:12px}
-.pending{background:#fef3c7}
-.processing{background:#dbeafe}
-.paid{background:#dcfce7}
-.shipped{background:#ede9fe}
-.completed{background:#ccfbf1}
-.cancelled{background:#fee2e2}
-.refunded{background:#e5e7eb}
+.pending{background:#fef3c7}        /* chờ */
+.confirmed{background:#dbeafe}      /* xác nhận */
+.deposit_paid{background:#dcfce7}   /* đặt cọc */
+.delivered{background:#ede9fe}      /* giao */
+.completed{background:#ccfbf1}      /* xong */
+.cancelled{background:#fee2e2}      /* huỷ */
 .toast{position:fixed;top:20px;right:20px;background:#111;color:#fff;padding:10px;border-radius:8px;opacity:0;transition:.3s}
 .toast.show{opacity:1}
 </style>
@@ -115,7 +114,9 @@ async function load(p=1){
     <td>#${o.id}</td>
     <td>${o.customer_name||''}</td>
     <td>${Number(o.total||0).toLocaleString()}₫</td>
-    <td><span class="badge ${o.status}">${o.status}</span></td>
+    <td><span class="badge ${o.status}">
+  ${statusText(o.status)}
+</span></td>
     <td>${new Date(o.created_at).toLocaleString('vi-VN')}</td>
     <td>
       <select onchange="action(${o.id},this.value)">
@@ -133,12 +134,25 @@ async function load(p=1){
 
 function actions(s){
  const map={
-  pending:['processing','cancelled'],
-  processing:['paid','cancelled'],
-  paid:['shipped','refunded'],
-  shipped:['completed']
+  pending:['confirmed','cancelled'],
+  confirmed:['deposit_paid','cancelled'],
+  deposit_paid:['delivered','cancelled'],
+  delivered:['completed']
  };
- return (map[s]||[]).map(x=>`<option value="${x}">${x}</option>`).join('');
+ return (map[s]||[])
+   .map(x=>`<option value="${x}">${statusText(x)}</option>`)
+   .join('');
+}
+function statusText(s){
+ const map={
+  pending:'Chờ xác nhận',
+  confirmed:'Đã xác nhận',
+  deposit_paid:'Đã đặt cọc',
+  delivered:'Đã giao',
+  completed:'Hoàn thành',
+  cancelled:'Đã huỷ'
+ };
+ return map[s] || s;
 }
 
 async function action(id,val){

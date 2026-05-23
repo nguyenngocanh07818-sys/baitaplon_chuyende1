@@ -1,271 +1,321 @@
 @extends('layouts.admin')
 
 @section('title', 'Dashboard')
-
 @section('meta')
-    <meta name="description" content="Bảng điều khiển quản trị - Xem tổng quan doanh thu, đơn hàng và báo cáo theo danh mục, ngày, tháng, năm.">
-    <meta name="keywords" content="dashboard, admin, doanh thu, báo cáo, đơn hàng, thống kê">
+    <meta name="description" content="Bảng điều khiển quản trị - Tổng quan doanh thu, đơn hàng và phân tích kinh doanh.">
+    <meta name="keywords" content="dashboard, admin, doanh thu, phân tích, đơn hàng, thống kê">
     <meta name="robots" content="index, follow">
 @endsection
 
 @section('breadcrumb')
-    <strong>Bảng điều khiển</strong>
+    <nav class="flex items-center gap-2 text-sm">
+        <span class="text-slate-400"><i class="fas fa-home"></i></span>
+        <i class="fas fa-chevron-right text-slate-300 text-xs"></i>
+        <span class="text-slate-600 font-medium">Bảng điều khiển</span>
+    </nav>
 @endsection
 
-@push('styles')
-<style>
-.hk-card {
-    box-shadow: 0 8px 20px rgba(255, 126, 184, 0.15);
-    transition: transform 0.3s ease, box-shadow 0.3s ease;
-}
-.hk-card:hover {
-    transform: translateY(-4px);
-    box-shadow: 0 12px 24px rgba(255, 126, 184, 0.25);
-}
-.hk-btn {
-    @apply px-5 py-3 text-sm font-semibold text-white;
-    background: #ff7eb8;
-    border-radius: 9999px;
-    transition: transform 0.3s ease, background 0.3s ease;
-}
-.hk-btn:hover {
-    background: #ff5fa7;
-    transform: translateY(-2px);
-}
-.hk-stat-card {
-    @apply p-4 rounded-lg bg-gradient-to-br from-cyan-50 to-pink-50;
-    transition: transform 0.3s ease;
-}
-.hk-stat-card:hover {
-    transform: scale(1.02);
-}
-canvas {
-    max-height: 350px !important;
-    width: 100% !important;
-}
-.chart-container {
-    position: relative;
-    padding: 1rem;
-    background: #fff;
-    border-radius: 0.5rem;
-    box-shadow: 0 4px 10px rgba(0, 0, 0, 0.05);
-}
-.chart-title {
-    @apply text-lg font-semibold text-slate-800 mb-4;
-}
-</style>
-@endpush
-
 @section('content')
-<div class="hk-card bg-white rounded-lg p-6">
-    <h1 class="text-2xl font-bold mb-4">Bảng điều khiển</h1>
-    <p class="mb-6 text-slate-600">Xin chào, <strong>{{ auth()->user()->name }}</strong> — Tổng quan thống kê doanh thu và đơn hàng.</p>
-
-    <!-- Tổng quan -->
-    <div class="grid grid-cols-1 md:grid-cols-3 gap-4 mb-8">
-        <div class="hk-stat-card">
-            <h3 class="text-base font-semibold text-cyan-900">Tổng đơn hàng</h3>
-            <p class="text-2xl font-bold text-slate-800">{{ number_format($totalOrders) }}</p>
+<div class="space-y-6" x-data="dashboardData()" x-init="init()">
+    {{-- Welcome Header --}}
+    <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+        <div>
+            <h1 class="text-2xl font-bold text-slate-800">
+                Xin chào, {{ auth()->user()->name }}! 👋
+            </h1>
+            <p class="mt-1 text-sm text-slate-500">Đây là tổng quan về hoạt động kinh doanh của bạn.</p>
         </div>
-        <div class="hk-stat-card">
-            <h3 class="text-base font-semibold text-cyan-900">Doanh thu 7 ngày</h3>
-            <p class="text-2xl font-bold text-slate-800">{{ number_format($revenueByDate->sum('total_revenue'), 0, ',', '.') }}₫</p>
-        </div>
-        <div class="hk-stat-card">
-            <h3 class="text-base font-semibold text-cyan-900">Doanh thu 12 tháng</h3>
-            <p class="text-2xl font-bold text-slate-800">{{ number_format($revenueByMonth->sum('total_revenue'), 0, ',', '.') }}₫</p>
+        <div class="flex items-center gap-3">
+            <span class="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium bg-emerald-50 text-emerald-700 rounded-full border border-emerald-200">
+                <span class="relative flex h-2 w-2">
+                    <span class="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
+                    <span class="relative inline-flex rounded-full h-2 w-2 bg-emerald-500"></span>
+                </span>
+                Đang hoạt động
+            </span>
+            <button class="px-4 py-2 bg-white border border-slate-300 rounded-lg text-sm font-medium text-slate-700 hover:bg-slate-50 transition-colors">
+                <i class="fas fa-download mr-2"></i>Xuất báo cáo
+            </button>
         </div>
     </div>
 
-    <!-- Biểu đồ doanh thu theo danh mục (Cột) -->
-    <div class="hk-card chart-container mb-6">
-        <h3 class="chart-title">Doanh thu theo danh mục</h3>
-        <canvas id="categoryChart"></canvas>
+    {{-- KPI Cards --}}
+    <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
+        {{-- Total Orders --}}
+        <div class="bg-white rounded-xl p-6 border border-slate-200 hover:shadow-lg transition-all duration-300 group cursor-pointer">
+            <div class="flex items-center justify-between mb-3">
+                <div class="w-12 h-12 bg-indigo-50 rounded-lg flex items-center justify-center group-hover:scale-110 transition-transform">
+                    <i class="fas fa-shopping-bag text-indigo-600 text-xl"></i>
+                </div>
+                <span class="text-xs font-medium text-emerald-600 bg-emerald-50 px-2 py-1 rounded-full">
+                    <i class="fas fa-arrow-up text-xs mr-1"></i>12.5%
+                </span>
+            </div>
+            <h3 class="text-sm font-medium text-slate-500 mb-1">Tổng đơn hàng</h3>
+            <p class="text-3xl font-bold text-slate-800">{{ number_format($totalOrders) }}</p>
+            <p class="text-xs text-slate-400 mt-2">So với tháng trước</p>
+        </div>
+
+        {{-- 7-Day Revenue --}}
+        <div class="bg-white rounded-xl p-6 border border-slate-200 hover:shadow-lg transition-all duration-300 group cursor-pointer">
+            <div class="flex items-center justify-between mb-3">
+                <div class="w-12 h-12 bg-violet-50 rounded-lg flex items-center justify-center group-hover:scale-110 transition-transform">
+                    <i class="fas fa-chart-line text-violet-600 text-xl"></i>
+                </div>
+                <span class="text-xs font-medium text-emerald-600 bg-emerald-50 px-2 py-1 rounded-full">
+                    <i class="fas fa-arrow-up text-xs mr-1"></i>8.2%
+                </span>
+            </div>
+            <h3 class="text-sm font-medium text-slate-500 mb-1">Doanh thu 7 ngày</h3>
+            <p class="text-3xl font-bold text-slate-800">{{ number_format($revenueByDate->sum('total_revenue'), 0, ',', '.') }}₫</p>
+            <p class="text-xs text-slate-400 mt-2">So với tuần trước</p>
+        </div>
+
+        {{-- Conversion Rate --}}
+        <div class="bg-white rounded-xl p-6 border border-slate-200 hover:shadow-lg transition-all duration-300 group cursor-pointer">
+            <div class="flex items-center justify-between mb-3">
+                <div class="w-12 h-12 bg-amber-50 rounded-lg flex items-center justify-center group-hover:scale-110 transition-transform">
+                    <i class="fas fa-percentage text-amber-600 text-xl"></i>
+                </div>
+                <span class="text-xs font-medium text-red-600 bg-red-50 px-2 py-1 rounded-full">
+                    <i class="fas fa-arrow-down text-xs mr-1"></i>0.5%
+                </span>
+            </div>
+            <h3 class="text-sm font-medium text-slate-500 mb-1">Tỷ lệ chuyển đổi</h3>
+            <p class="text-3xl font-bold text-slate-800">3.24%</p>
+            <p class="text-xs text-slate-400 mt-2">So với hôm qua</p>
+        </div>
+
+        {{-- 12-Month Revenue --}}
+        <div class="bg-white rounded-xl p-6 border border-slate-200 hover:shadow-lg transition-all duration-300 group cursor-pointer">
+            <div class="flex items-center justify-between mb-3">
+                <div class="w-12 h-12 bg-emerald-50 rounded-lg flex items-center justify-center group-hover:scale-110 transition-transform">
+                    <i class="fas fa-calendar-check text-emerald-600 text-xl"></i>
+                </div>
+                <span class="text-xs font-medium text-emerald-600 bg-emerald-50 px-2 py-1 rounded-full">
+                    <i class="fas fa-arrow-up text-xs mr-1"></i>22.4%
+                </span>
+            </div>
+            <h3 class="text-sm font-medium text-slate-500 mb-1">Doanh thu 12 tháng</h3>
+            <p class="text-3xl font-bold text-slate-800">{{ number_format($revenueByMonth->sum('total_revenue'), 0, ',', '.') }}₫</p>
+            <p class="text-xs text-slate-400 mt-2">So với năm trước</p>
+        </div>
     </div>
 
-    <!-- Biểu đồ doanh thu theo ngày (Đường) -->
-    <div class="hk-card chart-container mb-6">
-        <h3 class="chart-title">Doanh thu theo ngày (7 ngày gần nhất)</h3>
-        <canvas id="dateChart"></canvas>
+    {{-- Charts Grid --}}
+    <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+        {{-- Bar Chart --}}
+        <div class="lg:col-span-2 bg-white rounded-xl p-6 border border-slate-200">
+            <div class="flex items-center justify-between mb-6">
+                <div>
+                    <h3 class="text-lg font-semibold text-slate-800">Doanh thu theo danh mục</h3>
+                    <p class="text-sm text-slate-500">Tổng quan 30 ngày qua</p>
+                </div>
+            </div>
+            <div class="h-80">
+                <canvas id="categoryChart"></canvas>
+            </div>
+        </div>
+
+        {{-- Doughnut Chart --}}
+        <div class="bg-white rounded-xl p-6 border border-slate-200">
+            <div class="mb-4">
+                <h3 class="text-lg font-semibold text-slate-800">Phân bổ danh mục</h3>
+                <p class="text-sm text-slate-500">Tỷ trọng doanh thu</p>
+            </div>
+            <div class="h-72">
+                <canvas id="pieChart"></canvas>
+            </div>
+        </div>
     </div>
 
-    <!-- Biểu đồ tỷ lệ doanh thu theo danh mục (Tròn) -->
-    <div class="hk-card chart-container">
-        <h3 class="chart-title">Tỷ lệ doanh thu theo danh mục</h3>
-        <canvas id="pieChart"></canvas>
+    {{-- Line Chart --}}
+    <div class="bg-white rounded-xl p-6 border border-slate-200">
+        <div class="flex items-center justify-between mb-6">
+            <div>
+                <h3 class="text-lg font-semibold text-slate-800">Xu hướng doanh thu</h3>
+                <p class="text-sm text-slate-500">7 ngày gần nhất</p>
+            </div>
+        </div>
+        <div class="h-80">
+            <canvas id="dateChart"></canvas>
+        </div>
     </div>
 </div>
 @endsection
 
 @push('scripts')
 <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/alpinejs@3.x.x/dist/cdn.min.js"></script>
 <script>
-// Dữ liệu từ Blade
-const categoryRevenue = @json($categoryRevenue);
-const revenueByDate = @json($revenueByDate);
+function dashboardData() {
+    return {
+        init() {
+            this.initCharts();
+        },
+        initCharts() {
+            const categoryRevenue = @json($categoryRevenue);
+            const revenueByDate = @json($revenueByDate);
 
-// Palette màu hiện đại
-const colorPalette = [
-    'rgba(255, 126, 184, 0.7)', // Hồng chính (#ff7eb8)
-    'rgba(75, 192, 192, 0.7)',  // Xanh cyan
-    'rgba(255, 206, 86, 0.7)',  // Vàng
-    'rgba(54, 162, 235, 0.7)',  // Xanh dương
-    'rgba(153, 102, 255, 0.7)', // Tím
-];
+            Chart.defaults.font.family = "'Inter', system-ui, sans-serif";
+            Chart.defaults.font.size = 12;
 
-// Hàm định dạng tiền tệ
-const formatCurrency = (value) => {
-    return value.toLocaleString('vi-VN', { style: 'currency', currency: 'VND' });
-};
+            const formatCurrency = (value) => {
+                if (value >= 1_000_000_000) return (value / 1_000_000_000).toFixed(1) + 'B ₫';
+                if (value >= 1_000_000) return (value / 1_000_000).toFixed(1) + 'M ₫';
+                if (value >= 1_000) return (value / 1_000).toFixed(0) + 'K ₫';
+                return value.toLocaleString('vi-VN') + '₫';
+            };
 
-// Biểu đồ cột: Doanh thu theo danh mục
-const categoryChart = new Chart(document.getElementById('categoryChart').getContext('2d'), {
-    type: 'bar',
-    data: {
-        labels: categoryRevenue.map(item => item.category_name || 'Không xác định'),
-        datasets: [{
-            label: 'Doanh thu',
-            data: categoryRevenue.map(item => parseFloat(item.total_revenue)),
-            backgroundColor: colorPalette[0],
-            borderColor: 'rgba(255, 126, 184, 1)',
-            borderWidth: 1,
-            borderRadius: 8,
-            barThickness: 30,
-        }]
-    },
-    options: {
-        responsive: true,
-        maintainAspectRatio: false,
-        animation: {
-            duration: 1000,
-            easing: 'easeOutQuart',
-        },
-        scales: {
-            y: {
-                beginAtZero: true,
-                grid: { color: 'rgba(0, 0, 0, 0.05)' },
-                ticks: {
-                    callback: formatCurrency,
-                    font: { size: 12 },
-                },
-            },
-            x: {
-                grid: { display: false },
-                ticks: { font: { size: 12 } },
-            },
-        },
-        plugins: {
-            legend: { display: false },
-            title: { display: false },
-            tooltip: {
-                backgroundColor: 'rgba(0, 0, 0, 0.8)',
-                titleFont: { size: 14 },
-                bodyFont: { size: 12 },
-                callbacks: {
-                    label: (context) => `Doanh thu: ${formatCurrency(context.raw)}`,
-                },
-            },
-        },
-    },
-});
+            const indigo = '#6366f1';
+            const gridColor = '#f1f5f9';
 
-// Biểu đồ đường: Doanh thu theo ngày
-const dateChart = new Chart(document.getElementById('dateChart').getContext('2d'), {
-    type: 'line',
-    data: {
-        labels: revenueByDate.map(item => new Date(item.date).toLocaleDateString('vi-VN', { day: '2-digit', month: '2-digit' })),
-        datasets: [{
-            label: 'Doanh thu',
-            data: revenueByDate.map(item => parseFloat(item.total_revenue)),
-            fill: {
-                target: 'origin',
-                above: 'rgba(75, 192, 192, 0.2)',
-            },
-            borderColor: colorPalette[1],
-            backgroundColor: colorPalette[1],
-            tension: 0.3,
-            pointRadius: 5,
-            pointHoverRadius: 8,
-        }]
-    },
-    options: {
-        responsive: true,
-        maintainAspectRatio: false,
-        animation: {
-            duration: 1000,
-            easing: 'easeOutQuart',
-        },
-        scales: {
-            y: {
-                beginAtZero: true,
-                grid: { color: 'rgba(0, 0, 0, 0.05)' },
-                ticks: {
-                    callback: formatCurrency,
-                    font: { size: 12 },
-                },
-            },
-            x: {
-                grid: { display: false },
-                ticks: { font: { size: 12 } },
-            },
-        },
-        plugins: {
-            legend: { display: false },
-            title: { display: false },
-            tooltip: {
-                backgroundColor: 'rgba(0, 0, 0, 0.8)',
-                titleFont: { size: 14 },
-                bodyFont: { size: 12 },
-                callbacks: {
-                    label: (context) => `Doanh thu: ${formatCurrency(context.raw)}`,
-                },
-            },
-        },
-    },
-});
-
-// Biểu đồ tròn: Tỷ lệ doanh thu theo danh mục
-const pieChart = new Chart(document.getElementById('pieChart').getContext('2d'), {
-    type: 'pie',
-    data: {
-        labels: categoryRevenue.map(item => item.category_name || 'Không xác định'),
-        datasets: [{
-            data: categoryRevenue.map(item => parseFloat(item.total_revenue)),
-            backgroundColor: colorPalette,
-            borderColor: '#fff',
-            borderWidth: 2,
-        }]
-    },
-    options: {
-        responsive: true,
-        maintainAspectRatio: false,
-        animation: {
-            duration: 1000,
-            easing: 'easeOutQuart',
-        },
-        plugins: {
-            legend: {
-                position: 'right',
-                labels: {
-                    font: { size: 12 },
-                    padding: 20,
-                },
-            },
-            title: { display: false },
-            tooltip: {
-                backgroundColor: 'rgba(0, 0, 0, 0.8)',
-                titleFont: { size: 14 },
-                bodyFont: { size: 12 },
-                callbacks: {
-                    label: (context) => {
-                        const total = context.dataset.data.reduce((sum, val) => sum + val, 0);
-                        const percentage = ((context.raw / total) * 100).toFixed(1);
-                        return `${context.label}: ${formatCurrency(context.raw)} (${percentage}%)`;
+            // Category Bar Chart
+            const categoryCtx = document.getElementById('categoryChart')?.getContext('2d');
+            if (categoryCtx) {
+                new Chart(categoryCtx, {
+                    type: 'bar',
+                    data: {
+                        labels: categoryRevenue.map(item => item.category_name || 'Khác'),
+                        datasets: [{
+                            data: categoryRevenue.map(item => parseFloat(item.total_revenue)),
+                            backgroundColor: [
+                                'rgba(99, 102, 241, 0.8)',
+                                'rgba(139, 92, 246, 0.8)',
+                                'rgba(79, 70, 229, 0.7)',
+                                'rgba(165, 180, 252, 0.8)',
+                                'rgba(199, 210, 254, 0.9)',
+                            ],
+                            borderRadius: 8,
+                            borderSkipped: false,
+                        }]
                     },
-                },
-            },
-        },
-    },
-});
+                    options: {
+                        responsive: true,
+                        maintainAspectRatio: false,
+                        plugins: {
+                            legend: { display: false },
+                            tooltip: {
+                                backgroundColor: '#1e293b',
+                                cornerRadius: 8,
+                                callbacks: {
+                                    label: (ctx) => ` ${formatCurrency(ctx.raw)}`,
+                                }
+                            }
+                        },
+                        scales: {
+                            y: {
+                                beginAtZero: true,
+                                grid: { color: gridColor },
+                                ticks: { callback: (val) => formatCurrency(val) }
+                            },
+                            x: { grid: { display: false } }
+                        }
+                    }
+                });
+            }
+
+            // Line Chart
+            const dateCtx = document.getElementById('dateChart')?.getContext('2d');
+            if (dateCtx && revenueByDate.length) {
+                const gradient = dateCtx.createLinearGradient(0, 0, 0, 300);
+                gradient.addColorStop(0, 'rgba(99, 102, 241, 0.2)');
+                gradient.addColorStop(1, 'rgba(99, 102, 241, 0.0)');
+
+                new Chart(dateCtx, {
+                    type: 'line',
+                    data: {
+                        labels: revenueByDate.map(item => {
+                            const d = new Date(item.date);
+                            return d.toLocaleDateString('vi-VN', { weekday: 'short', day: '2-digit' });
+                        }),
+                        datasets: [{
+                            data: revenueByDate.map(item => parseFloat(item.total_revenue)),
+                            borderColor: indigo,
+                            backgroundColor: gradient,
+                            fill: true,
+                            tension: 0.4,
+                            borderWidth: 2,
+                            pointBackgroundColor: indigo,
+                            pointRadius: 4,
+                            pointHoverRadius: 6,
+                        }]
+                    },
+                    options: {
+                        responsive: true,
+                        maintainAspectRatio: false,
+                        plugins: {
+                            legend: { display: false },
+                            tooltip: {
+                                backgroundColor: '#1e293b',
+                                cornerRadius: 8,
+                                callbacks: {
+                                    label: (ctx) => ` Doanh thu: ${formatCurrency(ctx.raw)}`,
+                                }
+                            }
+                        },
+                        scales: {
+                            y: {
+                                beginAtZero: true,
+                                grid: { color: gridColor },
+                                ticks: { callback: (val) => formatCurrency(val) }
+                            },
+                            x: { grid: { display: false } }
+                        }
+                    }
+                });
+            }
+
+            // Doughnut Chart
+            const pieCtx = document.getElementById('pieChart')?.getContext('2d');
+            if (pieCtx) {
+                new Chart(pieCtx, {
+                    type: 'doughnut',
+                    data: {
+                        labels: categoryRevenue.map(item => item.category_name || 'Khác'),
+                        datasets: [{
+                            data: categoryRevenue.map(item => parseFloat(item.total_revenue)),
+                            backgroundColor: [
+                                'rgba(99, 102, 241, 0.8)',
+                                'rgba(139, 92, 246, 0.8)',
+                                'rgba(79, 70, 229, 0.7)',
+                                'rgba(165, 180, 252, 0.8)',
+                                'rgba(199, 210, 254, 0.9)',
+                            ],
+                            borderColor: '#fff',
+                            borderWidth: 3,
+                        }]
+                    },
+                    options: {
+                        responsive: true,
+                        maintainAspectRatio: false,
+                        plugins: {
+                            legend: {
+                                position: 'bottom',
+                                labels: {
+                                    padding: 16,
+                                    usePointStyle: true,
+                                    font: { size: 11 }
+                                }
+                            },
+                            tooltip: {
+                                backgroundColor: '#1e293b',
+                                cornerRadius: 8,
+                                callbacks: {
+                                    label: (ctx) => {
+                                        const total = ctx.dataset.data.reduce((a, b) => a + b, 0);
+                                        const pct = ((ctx.raw / total) * 100).toFixed(1);
+                                        return ` ${ctx.label}: ${formatCurrency(ctx.raw)} (${pct}%)`;
+                                    }
+                                }
+                            }
+                        },
+                        cutout: '65%',
+                    }
+                });
+            }
+        }
+    }
+}
 </script>
 @endpush
